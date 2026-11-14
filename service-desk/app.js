@@ -1,4 +1,10 @@
 const STORAGE_KEY = "serviceDeskTickets";
+const PRIORITY_ORDER = {
+  "Crítica": 0,
+  "Alta": 1,
+  "Média": 2,
+  "Baixa": 3
+};
 
 const seedTickets = [
   {
@@ -129,12 +135,19 @@ function render() {
 
 function renderTicketList() {
   const term = searchInput.value.trim().toLowerCase();
-  const filteredTickets = tickets.filter((ticket) => {
-    return (
-      String(ticket.id).includes(term) ||
-      ticket.title.toLowerCase().includes(term)
-    );
-  });
+  const filteredTickets = tickets
+    .filter((ticket) => {
+      return (
+        String(ticket.id).includes(term) ||
+        ticket.title.toLowerCase().includes(term)
+      );
+    })
+    .sort((first, second) => {
+      const priorityDifference =
+        (PRIORITY_ORDER[first.priority] ?? 4) - (PRIORITY_ORDER[second.priority] ?? 4);
+      if (priorityDifference !== 0) return priorityDifference;
+      return first.createdAt.localeCompare(second.createdAt) || first.id - second.id;
+    });
 
   ticketCounter.textContent = `${filteredTickets.length} chamado${filteredTickets.length === 1 ? "" : "s"}`;
 
