@@ -10,8 +10,8 @@ para o versionamento do projeto.
 ## 2. Preparação e escopo da análise
 
 A análise foi realizada sobre a aplicação Service Desk, com foco nos
-fluxos de organização da fila de atendimento, resolução de chamados e
-pesquisa de chamados.
+fluxos de organização da fila, resolução e pesquisa de chamados, além
+da validação dos dados do formulário de abertura.
 
 De acordo com o diagnóstico fornecido, os arquivos envolvidos nos
 problemas descritos foram:
@@ -48,16 +48,17 @@ prioridade. Como a abertura utiliza `tickets.unshift()`, os chamados
 mais recentes eram posicionados no início da lista, independentemente da
 prioridade.
 
-**Correção proposta:**\
-Implementar uma regra explícita de ordenação por prioridade e, como
-critério secundário, pela ordem de chegada.
+**Correção aplicada:**\
+A fila passou a ordenar os chamados por prioridade (**Crítica > Alta >
+Média > Baixa**) e, em caso de empate, pela data de criação e pelo ID.
 
 **Arquivo envolvido:** `app.js`
 
-**Status da correção:** O documento de evidências apresenta a correção
-como sugestão. Não há confirmação, nesse material, de que ela tenha sido
-implementada ou testada. Portanto, a correção deve ser concluída e
-validada antes de ser registrada como finalizada.
+**Validação registrada:**
+
+-   `node --check service-desk\app.js`: passou.
+-   `git diff --check`: passou.
+-   No navegador, a ordem observada foi **Crítica, Alta, Média e Baixa**.
 
 ### BUG 02 --- Chamados resolvidos permaneciam na fila e a resolução não era persistida
 
@@ -137,6 +138,70 @@ Faltava incluir `ticket.requester` na condição de busca.
 -   A busca por "Rafael" encontrou o chamado `#1002`.
 -   As buscas por título e ID também continuaram funcionando.
 
+### BUG 04 --- E-mail sem sufixo público aceito
+
+**Classificação:** `bugfix`
+
+**Comportamento observado:**\
+O campo usa `type="email"` e rejeita endereços sem `@`, mas o navegador
+aceitou `ana@empresa`, sem um sufixo de domínio público, e o formulário
+permitiu abrir o chamado.
+
+**Comportamento esperado:**\
+Se a regra do portal exige um endereço público completo, endereços sem
+domínio/sufixo conforme essa política devem ser rejeitados. Isso não
+significa exigir literalmente `.com`: domínios válidos também podem
+terminar em `.org`, `.br`, `.edu`, entre outros.
+
+**Causa identificada:**\
+A validação nativa de `type="email"` verifica a sintaxe básica do
+endereço, mas não garante que o domínio tenha um sufixo público, exista
+ou possa receber mensagens. Não há uma regra adicional no formulário.
+
+**Correção sugerida, não implementada:**\
+Definir a política de domínios aceitos e validá-la explicitamente no
+cliente. Se for necessário confirmar que o endereço existe ou recebe
+mensagens, isso requer uma verificação fora da validação HTML.
+
+**Arquivos envolvidos:** `index.html` e, se necessária validação
+personalizada, `app.js`.
+
+**Validação registrada:**\
+No navegador, `ana@empresa` e `ana@empresa.com` passaram pela validação
+nativa; `usuarioempresa.com`, sem `@`, foi rejeitado. O primeiro endereço
+também foi aceito no envio de um chamado.
+
+### BUG 05 --- Campos obrigatórios aceitam apenas espaços
+
+**Classificação:** `bugfix`
+
+**Comportamento observado:**\
+Os campos de solicitante, título e descrição aceitam valores compostos
+somente por espaços. O formulário permite o envio e o chamado aparece
+com esses campos vazios.
+
+**Comportamento esperado:**\
+Depois de remover espaços das pontas, os campos obrigatórios devem
+continuar contendo texto; caso contrário, o envio deve ser bloqueado e
+o usuário informado do que precisa corrigir.
+
+**Causa identificada:**\
+O atributo HTML `required` verifica o valor original, que contém espaços
+e, portanto, não está vazio. O `submit` aplica `trim()` ao montar o
+chamado, mas não valida o resultado antes de salvar.
+
+**Correção sugerida, não implementada:**\
+Normalizar e validar os valores com `trim()` antes de criar o chamado.
+Se algum campo obrigatório ficar vazio, cancelar o envio e exibir uma
+mensagem de validação.
+
+**Arquivo envolvido:** `app.js`.
+
+**Validação registrada:**\
+No navegador, o formulário passou em `checkValidity()` com solicitante,
+título e descrição compostos apenas por espaços. O envio criou um
+chamado cujas células de título e solicitante ficaram vazias.
+
 ## 4. Melhorias e novas funcionalidades
 
 Não há, no documento de evidências, registro de implementação de uma
@@ -197,16 +262,15 @@ dessas etapas.
 
 ## 7. Conclusão
 
-A análise identificou três problemas relacionados ao funcionamento da
-fila e à pesquisa de chamados: ausência de ordenação por prioridade,
-permanência de chamados resolvidos na fila com falha de persistência e
-ausência do nome do solicitante no filtro de busca.
+Este documento registra cinco problemas: ordenação da fila por prioridade,
+permanência de chamados resolvidos na fila e ausência de busca pelo
+solicitante, além de validação insuficiente para domínios de e-mail e
+aceitação de campos obrigatórios compostos apenas por espaços.
 
-Para os problemas de resolução/persistência e busca por solicitante, o
-documento de evidências registra correções aplicadas e verificações
-técnicas e funcionais. Para a ordenação por prioridade, o material
-apresenta o diagnóstico e a correção proposta, mas não confirma sua
-implementação; essa etapa permanece pendente de validação.
+As correções de ordenação, resolução/persistência e busca por
+solicitante foram implementadas e validadas. Os problemas de validação
+de e-mail e de campos em branco após `trim()` foram reproduzidos e
+documentados; suas correções ainda não foram implementadas.
 
 O uso de inteligência artificial apoiou a investigação e a documentação
 técnica. A separação das correções em commits individuais e a integração
