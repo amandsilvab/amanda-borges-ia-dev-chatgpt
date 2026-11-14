@@ -43,7 +43,7 @@ const seedTickets = [
 ];
 
 let tickets = loadTickets();
-let selectedTicketId = tickets[0]?.id ?? null;
+let selectedTicketId = tickets.find((ticket) => ticket.status !== "Resolvido")?.id ?? null;
 
 const views = document.querySelectorAll(".view");
 const tabs = document.querySelectorAll(".tab");
@@ -138,8 +138,11 @@ function renderTicketList() {
   const filteredTickets = tickets
     .filter((ticket) => {
       return (
-        String(ticket.id).includes(term) ||
-        ticket.title.toLowerCase().includes(term)
+        ticket.status !== "Resolvido" &&
+        (
+          String(ticket.id).includes(term) ||
+          ticket.title.toLowerCase().includes(term)
+        )
       );
     })
     .sort((first, second) => {
@@ -272,6 +275,11 @@ function updateSelectedTicket(ticketId) {
   ticket.correction = newCorrection;
   ticket.updatedAt = new Date().toISOString();
   ticket.events = ticket.events.concat(eventList);
+  saveTickets();
+
+  if (newStatus === "Resolvido") {
+    selectedTicketId = null;
+  }
 
   showToast(`Chamado #${ticket.id} atualizado.`);
   render();
